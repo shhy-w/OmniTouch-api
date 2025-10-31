@@ -1,0 +1,5 @@
+app.ini
+log/*
+.vscode/*
+tmp/*
+burn-api

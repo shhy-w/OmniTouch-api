@@ -1,1 +1,1 @@
-# burn-api
+# cosy-example-api

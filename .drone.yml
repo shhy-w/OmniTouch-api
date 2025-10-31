@@ -1,0 +1,195 @@
+kind: pipeline
+type: docker
+name: default
+
+steps:
+  - name: start
+    image: fifsky/drone-wechat-work
+    pull: if-not-exists
+    settings:
+      url:
+        from_secret: wecom_bot_url
+      msgtype: markdown
+      content: |
+        #### 🎉 ${DRONE_REPO} 已提交，开始执行 CI/CD
+        > Author: ${DRONE_COMMIT_AUTHOR}
+        {{ if ne .Event "tag" -}}
+        > Branch: ${DRONE_COMMIT_BRANCH}
+        {{ end -}}
+        > Event: ${DRONE_BUILD_EVENT}
+        > Runner: ${DRONE_STAGE_MACHINE}
+        > Commit: [{{ .Message }}](${DRONE_COMMIT_LINK})
+        > [点击查看](${DRONE_BUILD_LINK})
+
+  - name: mysql healthcheck
+    image: mysql:latest
+    pull: if-not-exists
+    commands:
+      - while ! mysqladmin ping -h mysql-server -u drone --silent; do sleep 1; done
+
+  - name: redis healthcheck
+    image: redis:latest
+    pull: if-not-exists
+    commands:
+      - while ! redis-cli -h redis-server ping; do sleep 1; done
+
+  - name: unit test
+    image: golang:latest
+    depends_on:
+      - mysql healthcheck
+      - redis healthcheck
+    environment:
+      ALIYUN_ACCESS_KEY_ID:
+        from_secret: aliyun_access_key_id
+      ALIYUN_ACCESS_KEY_SECRET:
+        from_secret: aliyun_access_key_secret
+    commands:
+      - |
+        echo '[app]
+        PageSize = 20
+        JwtSecret = c87047ba-f40b-447f-8da5-24ca617dca9a
+        [server]
+        Host = 127.0.0.1
+        Port = 0
+        RunMode = debug
+        [database]
+        User = drone
+        Password = drone
+        Host = mysql-server
+        Port = 3306
+        Name = drone
+        [redis]
+        Addr = redis-server:6379
+        Password =
+        DB = 0
+        Prefix = burn
+        [oss]
+        AccessKeyId     = '$${ALIYUN_ACCESS_KEY_ID}'
+        AccessKeySecret = '$${ALIYUN_ACCESS_KEY_SECRET}'
+        EndPoint        = oss-cn-shenzhen.aliyuncs.com
+        BucketName      = buyrcfly-ci-test
+        BaseUrl         = https://buyrcfly-ci-test.oss-cn-shenzhen.aliyuncs.com
+        [crypto]
+        Chacha20Key = a3f5c8d2e9b1a4f6c8d2e9b1a4f6a3f5
+        Chacha20Nonce = 7b1e9c0d
+        AESKey = 4d2c9a6b7f1e8d3c
+        AESIv = 8e4b2d7a5c1f9b0e
+        [auth]
+        BanThresholdMinutes = 10
+        MaxAttempts = 10'> app.testing.ini
+      - go test -coverprofile=coverage.out ./...
+      #- go tool cover -func=coverage.out
+    volumes:
+      - name: go_cache
+        path: /go/pkg
+
+  - name: compile go
+    image: crazymax/goxx:latest
+    pull: if-not-exists
+    depends_on:
+      - unit test
+    environment:
+      CGO_ENABLED: "1"
+    commands:
+      - goxx-go build -v -o burn-api -ldflags "-X 'git.uozi.org/uozi/cosy-example-api/settings.buildTime=$(date +%s)'" main.go
+    volumes:
+      - name: go_cache
+        path: /go/pkg
+
+  - name: build and push docker image
+    image: plugins/docker
+    pull: if-not-exists
+    depends_on:
+      - compile go
+    settings:
+      repo: registry.cn-shenzhen.aliyuncs.com/uozi/burn-api
+      registry: registry.cn-shenzhen.aliyuncs.com
+      tags:
+        - latest
+        - ${DRONE_BUILD_NUMBER}
+      dockerfile: Dockerfile
+      context: .
+      username:
+        from_secret: aliyun_registry_username
+      password:
+        from_secret: aliyun_registry_password
+    when:
+      event:
+        - push
+      branch:
+        - main
+
+  - name: deploy to production
+    image: appleboy/drone-ssh
+    pull: if-not-exists
+    depends_on:
+      - build and push docker image
+    settings:
+      host:
+        from_secret: ssh_host_uozi_sz
+      username:
+        from_secret: ssh_username
+      key:
+        from_secret: ssh_key_uozi
+      script:
+        - docker pull registry-vpc.cn-shenzhen.aliyuncs.com/uozi/burn-api:${DRONE_BUILD_NUMBER}
+        - docker stop burn-api
+        - docker rm burn-api
+        - docker run -d --name burn-api -v /var/www/burn-api:/config
+          -e TZ=Asia/Shanghai
+          -p9008:9008
+          --restart=always registry-vpc.cn-shenzhen.aliyuncs.com/uozi/burn-api:${DRONE_BUILD_NUMBER}
+    when:
+      event:
+        - push
+      branch:
+        - main
+
+  - name: notify
+    image: fifsky/drone-wechat-work
+    pull: if-not-exists
+    depends_on:
+      - compile go
+      - build and push docker image
+      - deploy to production
+    settings:
+      url:
+        from_secret: wecom_bot_url
+      msgtype: markdown
+      content: |
+        {{ if eq .Status "success" }}
+        #### 🎉 ${DRONE_REPO} 构建成功
+        {{ else }}
+        #### ❌ ${DRONE_REPO} 构建失败
+        {{ end }}
+        > Author: ${DRONE_COMMIT_AUTHOR}
+        > Event: ${DRONE_BUILD_EVENT}
+        > Runner: ${DRONE_STAGE_MACHINE}
+        > Commit: [{{ .Message }}](${DRONE_COMMIT_LINK})
+        > [点击查看](${DRONE_BUILD_LINK})
+    when:
+      status: [ success, failure ]
+
+services:
+  - name: mysql-server
+    image: mysql:latest
+    pull: if-not-exists
+    environment:
+      MYSQL_DATABASE: drone
+      MYSQL_USER: drone
+      MYSQL_PASSWORD: drone
+      MYSQL_RANDOM_ROOT_PASSWORD: true
+
+  - name: redis-server
+    pull: if-not-exists
+    image: redis:latest
+
+volumes:
+  - name: go_cache
+    host:
+      path: /tmp/go_cache  # host volume absolute path
+
+trigger:
+  event:
+    - push
+    - pull_request

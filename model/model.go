@@ -27,6 +27,10 @@ func GenerateAllModel() []any {
 		Upload{},
 		Setting{},
 		BurnedHistory{},
+		MiniappUser{},
+		Device{},
+		DeviceCommand{},
+		DeviceEvent{},
 	}
 }
 

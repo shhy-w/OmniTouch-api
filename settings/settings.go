@@ -18,6 +18,8 @@ func init() {
 	t := time.Unix(cast.ToInt64(buildTime), 0)
 	LastModified = strings.ReplaceAll(t.Format(time.RFC1123), "UTC", "GMT")
 
+	settings.Register("wechat", WechatSettings)
+	settings.Register("mqtt", MqttSettings)
 	settings.Register("oss", OssSettings)
 	settings.Register("crypto", crypto.Settings)
 	// settings.Register("sls", SLSSettings)

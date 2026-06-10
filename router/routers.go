@@ -3,9 +3,7 @@ package router
 import (
 	"net/http"
 
-	burn_history "git.uozi.org/uozi/cosy-example-api/api/admin/burned_history"
-	"git.uozi.org/uozi/cosy-example-api/api/global"
-	"git.uozi.org/uozi/cosy-example-api/api/user"
+	miniappAPI "git.uozi.org/uozi/cosy-example-api/api/miniapp"
 	"github.com/gin-gonic/gin"
 	"github.com/uozi-tech/cosy"
 )
@@ -18,15 +16,6 @@ func InitRouter() {
 			"message": "ok321",
 		})
 	})
-	global.InitRouter(r)
-	// adminRouter := r.Group("admin", AuthAdminRequired(), AdminRequired())
-	adminRouter := r.Group("admin", AuthAdminRequired())
-	{
-		adminRouter.GET("/user", global.GetCurrentUser)
-		adminRouter.POST("/user", global.UpdateCurrentUser)
-		user.InitUserRouter(adminRouter)
-		user.InitUserGroupRouter(adminRouter)
-		burn_history.InitBurnHistoryRouter(adminRouter)
-	}
+	miniappAPI.InitRouter(r)
 
 }

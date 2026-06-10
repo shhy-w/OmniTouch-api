@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"git.uozi.org/uozi/cosy-example-api/internal/acl"
@@ -15,6 +16,9 @@ import (
 )
 
 func TestModelUserGetPermissionsMap(t *testing.T) {
+	if os.Getenv("OMNITOUCH_RUN_DB_TESTS") != "1" {
+		t.Skip("skip legacy database integration test")
+	}
 	sandbox.NewInstance("../app.testing.ini", "mysql").
 		RegisterModels(User{}, UserGroup{}).
 		Run(func(instance *sandbox.Instance) {
@@ -60,6 +64,9 @@ func TestModelUserGetPermissionsMap(t *testing.T) {
 }
 
 func TestUpdateLastActive(t *testing.T) {
+	if os.Getenv("OMNITOUCH_RUN_DB_TESTS") != "1" {
+		t.Skip("skip legacy database integration test")
+	}
 	sandbox.NewInstance("../app.testing.ini", "mysql").
 		RegisterModels(User{}, UserGroup{}).
 		Run(func(instance *sandbox.Instance) {
@@ -84,6 +91,9 @@ func TestUpdateLastActive(t *testing.T) {
 }
 
 func TestUserIsAdmin(t *testing.T) {
+	if os.Getenv("OMNITOUCH_RUN_DB_TESTS") != "1" {
+		t.Skip("skip legacy database integration test")
+	}
 	sandbox.NewInstance("../app.testing.ini", "mysql").
 		RegisterModels(User{}, UserGroup{}).
 		Run(func(instance *sandbox.Instance) {

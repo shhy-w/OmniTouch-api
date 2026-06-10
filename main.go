@@ -6,6 +6,7 @@ import (
 
 	"git.uozi.org/uozi/cosy-example-api/internal/audit"
 	"git.uozi.org/uozi/cosy-example-api/internal/limiter"
+	"git.uozi.org/uozi/cosy-example-api/internal/omnitouch"
 	"git.uozi.org/uozi/cosy-example-api/model"
 	"git.uozi.org/uozi/cosy-example-api/model/view"
 	"git.uozi.org/uozi/cosy-example-api/query"
@@ -47,6 +48,7 @@ func main() {
 	// 注册后台运行函数，用于异步运行收集日志和监控
 	cosy.RegisterGoroutine(
 		audit.Init,
+		omnitouch.InitBroker,
 	)
 
 	// cosy启动

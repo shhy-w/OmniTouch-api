@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"git.uozi.org/uozi/cosy-example-api/model"
@@ -14,6 +15,9 @@ import (
 )
 
 func TestLogin(t *testing.T) {
+	if os.Getenv("OMNITOUCH_RUN_DB_TESTS") != "1" {
+		t.Skip("skip legacy database integration test")
+	}
 	sandbox.NewInstance("../../app.testing.ini", "mysql").
 		RegisterModels(model.User{}).
 		Run(func(instance *sandbox.Instance) {

@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 
 	"git.uozi.org/uozi/cosy-example-api/internal/acl"
@@ -17,6 +18,9 @@ import (
 )
 
 func TestGetByID(t *testing.T) {
+	if os.Getenv("OMNITOUCH_RUN_DB_TESTS") != "1" {
+		t.Skip("skip legacy database integration test")
+	}
 	sandbox.NewInstance("../../app.testing.ini", "mysql").
 		RegisterModels(model.User{}, model.UserGroup{}).
 		Run(func(instance *sandbox.Instance) {
